@@ -32,7 +32,7 @@ use Symfony\UX\TwigComponent\CacheWarmer\TwigComponentCacheWarmer;
 use Symfony\UX\TwigComponent\Command\TwigComponentDebugCommand;
 use Symfony\UX\TwigComponent\ComponentFactory;
 use Symfony\UX\TwigComponent\ComponentProperties;
-use Symfony\UX\TwigComponent\ComponentPropertiesExtractor;
+use Symfony\UX\TwigComponent\ComponentReflection;
 use Symfony\UX\TwigComponent\ComponentRenderer;
 use Symfony\UX\TwigComponent\ComponentRendererInterface;
 use Symfony\UX\TwigComponent\ComponentStack;
@@ -135,7 +135,7 @@ final class TwigComponentExtension extends Extension implements ConfigurationInt
             ->setDecoratedService(new Reference('twig.configurator.environment'))
             ->setArguments([new Reference('ux.twig_component.twig.environment_configurator.inner')]);
 
-        $container->register('ux.twig_component.extractor_properties', ComponentPropertiesExtractor::class)
+        $container->register('ux.twig_component.extractor_properties', ComponentReflection::class)
             ->setArguments([
                 new Reference('twig'),
             ]);

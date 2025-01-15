@@ -23,7 +23,8 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Finder\Finder;
 use Symfony\UX\TwigComponent\ComponentFactory;
 use Symfony\UX\TwigComponent\ComponentMetadata;
-use Symfony\UX\TwigComponent\ComponentPropertiesExtractor;
+use Symfony\UX\TwigComponent\ComponentPropertyReflection;
+use Symfony\UX\TwigComponent\ComponentReflection;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
 
@@ -31,7 +32,7 @@ use Twig\Loader\FilesystemLoader;
 class TwigComponentDebugCommand extends Command
 {
     private readonly string $anonymousDirectory;
-    private readonly ComponentPropertiesExtractor $componentPropertiesExtractor;
+    private readonly ComponentReflection $componentReflection;
 
     public function __construct(
         private string $twigTemplatesPath,
@@ -39,11 +40,11 @@ class TwigComponentDebugCommand extends Command
         private Environment $twig,
         private readonly array $componentClassMap,
         ?string $anonymousDirectory = null,
-        ?ComponentPropertiesExtractor $componentPropertiesExtractor = null,
+        ?ComponentReflection $componentReflection = null,
     ) {
         parent::__construct();
         $this->anonymousDirectory = $anonymousDirectory ?? 'components';
-        $this->componentPropertiesExtractor = $componentPropertiesExtractor ?? new ComponentPropertiesExtractor($this->twig);
+        $this->componentReflection = $componentReflection ?? new ComponentReflection($this->twig);
     }
 
     protected function configure(): void
@@ -214,9 +215,9 @@ EOF
             ['Template', $metadata->getTemplate()],
         ]);
 
-        $properties = $this->componentPropertiesExtractor->getComponentProperties($metadata);
+        $properties = $this->componentReflection->getProperties($metadata);
         $propertiesAsArrayOfStrings = array_filter(array_map(
-            fn (array $property) => $property['display'],
+            fn (ComponentPropertyReflection $property) => $property->getCode(),
             $properties,
         ));
 

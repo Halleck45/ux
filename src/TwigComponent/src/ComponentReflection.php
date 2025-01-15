@@ -15,7 +15,10 @@ use Symfony\UX\TwigComponent\Attribute\ExposeInTemplate;
 use Symfony\UX\TwigComponent\Twig\PropsNode;
 use Twig\Environment;
 
-final class ComponentPropertiesExtractor
+/**
+ * @author Jean-François Lépine <lepinejeanfrancois@gmail.com>
+ */
+final class ComponentReflection
 {
     public function __construct(
         private readonly Environment $twig,
@@ -23,9 +26,9 @@ final class ComponentPropertiesExtractor
     }
 
     /**
-     * @return array<array{display: string, name: string, type: string, default: mixed}>
+     * @return ComponentPropertyReflection[]
      */
-    public function getComponentProperties(ComponentMetadata $medata)
+    public function getProperties(ComponentMetadata $medata): array
     {
         if ($medata->isAnonymous()) {
             return $this->getAnonymousComponentProperties($medata);
@@ -34,8 +37,15 @@ final class ComponentPropertiesExtractor
         return $this->getNonAnonymousComponentProperties($medata);
     }
 
+    public function getProperty(ComponentMetadata $medata, string $name): ?ComponentPropertyReflection
+    {
+        $properties = $this->getProperties($medata);
+
+        return $properties[$name] ?? null;
+    }
+
     /**
-     * @return array<array{display: string, name: string, type: string, default: mixed}>
+     * @return ComponentPropertyReflection[]
      */
     private function getNonAnonymousComponentProperties(ComponentMetadata $metadata): array
     {
@@ -52,26 +62,13 @@ final class ComponentPropertiesExtractor
                     $typeName = (string) $type;
                 }
                 $value = $property->getDefaultValue();
-                $propertyDisplay = $typeName.' $'.$propertyName.(null !== $value ? ' = '.json_encode(
-                    $value
-                ) : '');
-                $properties[$property->name] = [
-                    'name' => $propertyName,
-                    'display' => $propertyDisplay,
-                    'type' => $typeName,
-                    'default' => $value,
-                ];
+                $properties[$propertyName] = new ComponentPropertyReflection($metadata, $propertyName, $typeName, $value);
             }
 
             foreach ($property->getAttributes(ExposeInTemplate::class) as $exposeAttribute) {
                 /** @var ExposeInTemplate $attribute */
                 $attribute = $exposeAttribute->newInstance();
-                $properties[$property->name] = [
-                    'name' => $attribute->name ?? $property->name,
-                    'display' => $attribute->name ?? $property->name,
-                    'type' => 'mixed',
-                    'default' => null,
-                ];
+                $properties[$property->name] = new ComponentPropertyReflection($metadata, $attribute->name ?? $property->name);
             }
         }
 
@@ -81,7 +78,7 @@ final class ComponentPropertiesExtractor
     /**
      * Extract properties from {% props %} tag in anonymous template.
      *
-     * @return array<array{display: string, name: string, type: string, default: mixed}>
+     * @return ComponentPropertyReflection[]
      */
     private function getAnonymousComponentProperties(ComponentMetadata $metadata): array
     {
@@ -103,36 +100,18 @@ final class ComponentPropertiesExtractor
         }
 
         $propertyNames = $propsNode->getAttribute('names');
-        $properties = array_combine($propertyNames, $propertyNames);
+        $properties = [];
+        foreach ($propertyNames as $propName) {
+            $properties[$propName] = new ComponentPropertyReflection($metadata, $propName, 'mixed');
+        }
+
         foreach ($propertyNames as $propName) {
             if ($propsNode->hasNode($propName)
                 && ($valueNode = $propsNode->getNode($propName))
                 && $valueNode->hasAttribute('value')
             ) {
                 $value = $valueNode->getAttribute('value');
-                if (\is_bool($value)) {
-                    $value = $value ? 'true' : 'false';
-                } else {
-                    $value = json_encode($value);
-                }
-                $display = $propName.' = '.$value;
-                $properties[$propName] = [
-                    'name' => $propName,
-                    'display' => $display,
-                    'type' => \is_bool($value) ? 'bool' : 'mixed',
-                    'default' => $value,
-                ];
-            }
-        }
-
-        foreach ($properties as $propertyData) {
-            if (\is_string($propertyData)) {
-                $properties[$propertyData] = [
-                    'name' => $propertyData,
-                    'display' => $propertyData,
-                    'type' => 'mixed',
-                    'default' => null,
-                ];
+                $properties[$propName] = new ComponentPropertyReflection($metadata, $propName, 'mixed', $value);
             }
         }
 

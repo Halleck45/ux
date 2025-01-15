@@ -2,7 +2,7 @@
 
 ## 2.23.0
 
-- Add `ComponentPropertiesExtractor` to extract component properties from a Twig component
+- Add `ComponentReflection` to extract component properties from a Twig component
 
 ## 2.20.0
 
