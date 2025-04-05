@@ -26,6 +26,16 @@ final class TwigPreLexerTest extends TestCase
         $this->assertSame($expectedOutput, $lexer->preLexComponents($input));
     }
 
+   /**
+     * @dataProvider getListTests
+     * @group wip
+     */
+    public function testComponentList(string $input, string $expectedOutput): void
+    {
+        $lexer = new TwigPreLexer();
+        $this->assertSame($expectedOutput, $lexer->preLexComponents($input));
+    }
+
     /**
      * @dataProvider getInvalidSyntaxTests
      */
@@ -375,6 +385,45 @@ final class TwigPreLexerTest extends TestCase
         yield 'component_attr_spreading_with_content3' => [
             '<twig:foobar bar="baz" {{ ...attr }}>content</twig:foobar>',
             '{% component \'foobar\' with { bar: \'baz\', ...attr } %}{% block content %}content{% endblock %}{% endcomponent %}',
+        ];
+    }
+
+    public static function getListTests()
+    {
+        yield 'basic_list_to_compare_basic_behavior' => [
+            '{% for item in users %}
+              <UserCard :user="item" />
+            {% endfor %}',
+            '{% for item in users %}
+              <UserCard :user="item" />
+            {% endfor %}',
+        ];
+
+        yield 'basic_list' => [
+            '<twig:List of="users" as="item">
+              <UserCard :user="item" />
+            </twig:List>',
+            '{% for item in users %}
+              <UserCard :user="item" />
+            {% endfor %}',
+        ];
+
+        yield 'list_with_custom_as' => [
+            '<twig:List of="users" as="user">
+              <UserCard :user="user" />
+            </twig:List>',
+            '{% for user in users %}
+              <UserCard :user="user" />
+            {% endfor %}',
+        ];
+
+        yield 'list_without_as' => [
+            '<twig:List of="users" >
+              <UserCard :user="item" />
+            </twig:List>',
+            '{% for item in users %}
+              <UserCard :user="item" />
+            {% endfor %}',
         ];
     }
 }

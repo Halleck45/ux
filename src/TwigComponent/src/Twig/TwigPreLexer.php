@@ -91,6 +91,39 @@ class TwigPreLexer
             if ($isTwigHtmlOpening || (0 !== \count($this->currentComponents) && $isTraditionalBlockOpening = $this->consume('{% block'))) {
                 $componentName = $isTraditionalBlockOpening ? 'block' : $this->consumeComponentName();
 
+                if('List' === $componentName) {
+                    // We replace <twig:List of="..."> with a for loop
+                    $nextClosingTag = '</twig:List>';
+                    if (false === strpos($this->input, $nextClosingTag, $this->position)) {
+                        throw new SyntaxError("Expected closing tag '{$nextClosingTag}' for block '{$componentName}'.", $this->line);
+                    }
+
+                    // looking for the "of" attribute
+                    $this->consumeWhitespace();
+                    $attributes = $this->consumeAttributesAsArray('List');
+                    $this->consume('>');
+
+                    $of = $attributes['of'] ?? null;
+                    $as = $attributes['as'] ?? 'item';
+                    if(null === $of) {
+                        throw new SyntaxError("Expected 'of' attribute for block '{$componentName}'.", $this->line);
+                    }
+
+                    // Get content between <twig:List> and </twig:List>
+                    $content = $this->consumeUntil($nextClosingTag);
+                    $this->consume($nextClosingTag);
+                    $this->consume('</twig:List>');
+
+                    // generate the for loop
+                    $output .= "{% for {$as} in {$of} %}";
+                    $subLexer = new self($this->line);
+                    $output .= $subLexer->preLexComponents($content);
+                    $output .= "{% endfor %}";
+
+                    // Do not add the default block
+                    continue;
+                }
+
                 if ('block' === $componentName) {
                     // if we're already inside the "default" block, let's close it
                     if (!empty($this->currentComponents) && $this->currentComponents[\count($this->currentComponents) - 1]['hasDefaultBlock'] && !$inTwigEmbed) {
@@ -209,6 +242,29 @@ class TwigPreLexer
         }
 
         throw new SyntaxError($customExceptionMessage ?? 'Expected component name when resolving the "<twig:" syntax.', $this->line);
+    }
+
+    private function consumeAttributesAsArray(string $componentName): array {
+
+        $attributes = $this->consumeAttributes($componentName);
+
+        // convert attributes (string like: of: 'users', as: 'item') to an array
+        $attributes = explode(', ', $attributes);
+        $attributes = array_map(function ($attr) {
+            [$key, $value] = explode(': ', $attr);
+            return [
+                'key' => trim($key),
+                'value' => trim($value, "'"),
+            ];
+        }, $attributes);
+
+        // make it flat
+        $attributes = array_reduce($attributes, function ($carry, $item) {
+            $carry[$item['key']] = $item['value'];
+            return $carry;
+        }, []);
+
+        return $attributes;
     }
 
     private function consumeAttributes(string $componentName): string
